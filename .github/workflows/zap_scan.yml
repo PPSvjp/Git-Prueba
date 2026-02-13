@@ -26,7 +26,7 @@ jobs:
           docker run -it --rm \
             -v $(pwd):/zap/wrk/:rw \
             --network host \
-            -u 0 \
+#            -u 0 \
             ghcr.io/zaproxy/zap-automation:latest \
             /zap/zap-automation.py -f /zap/wrk/zap_scan.yaml
 
