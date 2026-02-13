@@ -1,4 +1,3 @@
-# este archivo YAML define el workflow de GitHub Actions para ejecutar un escaneo de seguridad utilizando OWASP ZAP. El workflow se activa cada vez que se realiza un push al repositorio. El proceso incluye la instalación de OWASP ZAP, la ejecución del escaneo definido en zap_scan.yaml, y la subida del reporte generado como un artefacto para su revisión posterior.
 name: ZAP Juice Shop Scan
 
 on:
@@ -13,42 +12,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Docker Login GHCR (por si acaso)
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Docker Login (Docker Hub + GHCR)
+        uses: docker/login-action@v3
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Start Juice Shop
         run: |
           docker run -d --name juice-shop -p 3000:3000 bkimminich/juice-shop
           timeout 120 bash -c 'while ! curl -f http://localhost:3000; do sleep 5; done'
-          echo "✅ Juice Shop en http://localhost:3000"
 
-      - name: ZAP Baseline (Action Oficial - Sin Volumen Problemático)
-        uses: zaproxy/action-baseline@v0.7.0
+      - name: ZAP Baseline v9 (Imagen ACTUAL)
+        uses: zaproxy/action-baseline@v9.0.0
         with:
           target: 'http://localhost:3000'
-          # SIN docker_name = usa imagen por defecto ✅
-          # SIN rules_file_name = sin permission error ✅
 
-      - name: Fallback - Tu zap_scan.yaml (Si baseline falla)
-        if: failure()
-        run: |
-          docker run --rm -v $(pwd):/zap/wrk/ \
-            ghcr.io/zaproxy/zap-automation:stable \
-            zap-automation.py -f /zap/wrk/zap_scan.yaml -r zap_report.html
+      - name: Debug
+        run: ls -la *.html *.json
 
-      - name: Debug Archivos
-        run: |
-          echo "=== TODOS los reportes ==="
-          ls -la *.html *.json || echo "Ningún reporte"
-          find . -name "*report*" -o -name "*zap*" -o -name "*.html"
-
-      - name: Upload TODOS
+      - name: Upload Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: zap-juice-shop-complete
+          name: zap-complete-report
           path: |
             zap-baseline.html
-            zap_report.html
             report*.html
-            *.json
+
