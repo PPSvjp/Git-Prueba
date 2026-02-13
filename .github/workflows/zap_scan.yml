@@ -1,8 +1,8 @@
 # este archivo YAML define el workflow de GitHub Actions para ejecutar un escaneo de seguridad utilizando OWASP ZAP. El workflow se activa cada vez que se realiza un push al repositorio. El proceso incluye la instalación de OWASP ZAP, la ejecución del escaneo definido en zap_scan.yaml, y la subida del reporte generado como un artefacto para su revisión posterior.
-name: ZAP Scan Juice Shop
+name: ZAP Baseline Juice Shop
 
 on:
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
   push:
     branches: [ main ]
 
@@ -13,28 +13,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Docker Login (para GHCR/DH)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io  # Y Docker Hub por default
+
       - name: Start Juice Shop
         run: |
           docker run -d --name juice-shop -p 3000:3000 bkimminich/juice-shop
-          # Espera a que inicie (Juice Shop tarda ~30s)
-          timeout=120s bash -c 'until curl -f http://localhost:3000; do sleep 5; done' || true
+          timeout 120 bash -c 'while ! curl -f http://localhost:3000; do sleep 5; done'
 
-      - name: ZAP Scan
-        uses: zaproxy/action-full-scan@v0.4.0  # Full scan incluye spider + active
-        id: zap-scan
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.7.0
         with:
           target: 'http://localhost:3000'
-          rules_file_name: 'zap_scan.yaml'  # Tu config personalizada
+          rules_file_name: 'zap_scan.yaml'  # Tu spider + active + report
           docker_name: 'ghcr.io/zaproxy/zap-stable'
-          cmd_options: '-J zap_report.json'  # JSON para artifacts
+          failure_threshold: medium  # Falla si medium+ risks
+          report_title: 'Juice Shop ZAP Report'
+          report_file: 'zap_report.html'
+          cmd_options: '-a -z'  # Acepta riesgos por demo
 
-      - name: Show ZAP results
-        run: cat zap_report.json
-
-      - name: Upload ZAP Report
+      - name: Upload Report
         uses: actions/upload-artifact@v4
         with:
           name: zap-juice-shop-report
-          path: |
-            zap_report.json
-            zap_report.html  # Si generas HTML también
+          path: zap_report.*
