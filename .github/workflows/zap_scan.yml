@@ -1,18 +1,20 @@
-# Este archivo YAML define un proceso de escaneo utilizando OWASP ZAP para una aplicación web local en el puerto 3000. El proceso consta de tres trabajos: un spider para descubrir enlaces, un escaneo activo para identificar vulnerabilidades, y la generación de un informe en formato HTML.
-# Lo colocamos en la raíz del proyecto para que pueda ser referenciado por el workflow de GitHub Actions definido en zap_scan.yml.
+//este archivo YAML define el workflow de GitHub Actions para ejecutar un escaneo de seguridad utilizando OWASP ZAP. El workflow se activa cada vez que se realiza un push al repositorio. El proceso incluye la instalación de OWASP ZAP, la ejecución del escaneo definido en zap_scan.yaml, y la subida del reporte generado como un artefacto para su revisión posterior.
+
+name: DAST Scan
+on: push
 
 jobs:
-  - type: spider
-    parameters:
-      url: "http://localhost:3000"
-      maxDuration: 2
-  - type: activeScan
-    parameters:
-      url: "http://localhost:3000"
-      recurse: true
-      maxDuration: 5
-  - type: report
-    parameters:
-      template: traditional-html
-      reportFile: zap_report.html
-      reportTitle: "ZAP Scan Report"
+  zap_scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Instalar OWASP ZAP
+        run: sudo apt-get install zaproxy -y
+
+      - name: Ejecutar escaneo
+        run: zaproxy -cmd -autorun zap_scan.yaml
+
+      - name: Guardar reporte
+        uses: actions/upload-artifact@v3
+        with:
+          name: ZAP-Report
+          path: zap_report.html
