@@ -13,23 +13,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Docker Login (Auto)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
       - name: Start Juice Shop
         run: |
           docker run -d --name juice-shop -p 3000:3000 bkimminich/juice-shop
           timeout 120 bash -c 'while ! curl -f http://localhost:3000; do sleep 5; done'
 
-      - name: ZAP Scan Manual (Docker Hub OK)
-        uses: docker://owasp/zap2docker-stable:prerelease  # Tag que SÍ existe
-        env:
-          TARGET: 'http://localhost:3000'
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.7.0
         with:
-          entrypoint: /zap/zap-baseline.py
-          args: '-t ${{ env.TARGET }} -r zap-baseline.html --format json'
+          target: 'http://localhost:3000'
+          docker_name: 'ghcr.io/zaproxy/zap-stable'  # GHCR con login OK
+          failure_threshold: none
 
-      - name: Upload Reports
+      - name: Upload Report
         uses: actions/upload-artifact@v4
         with:
-          name: zap-juice-shop-reports
+          name: zap-juice-shop-report
           path: |
-            zap-baseline.*
-            zap_report.*
+            zap-baseline.html
+            zap_report.html
