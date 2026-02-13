@@ -13,32 +13,42 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Docker Login GHCR
+      - name: Docker Login GHCR (por si acaso)
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Start Juice Shop
         run: |
           docker run -d --name juice-shop -p 3000:3000 bkimminich/juice-shop
           timeout 120 bash -c 'while ! curl -f http://localhost:3000; do sleep 5; done'
+          echo "✅ Juice Shop en http://localhost:3000"
 
-      - name: ZAP Scan MANUAL (Tu zap_scan.yaml)
+      - name: ZAP Baseline (Action Oficial - Sin Volumen Problemático)
+        uses: zaproxy/action-baseline@v0.7.0
+        with:
+          target: 'http://localhost:3000'
+          # SIN docker_name = usa imagen por defecto ✅
+          # SIN rules_file_name = sin permission error ✅
+
+      - name: Fallback - Tu zap_scan.yaml (Si baseline falla)
+        if: failure()
         run: |
-          docker run --rm -v $(pwd):/zap/wrk/:rw \
-            --network host \
-            -u root \
-            ghcr.io/zaproxy/zaproxy:stable \
+          docker run --rm -v $(pwd):/zap/wrk/ \
+            ghcr.io/zaproxy/zap-automation:stable \
             zap-automation.py -f /zap/wrk/zap_scan.yaml -r zap_report.html
-            
-      - name: Debug Files
-        run: ls -la zap*.html report*.html
 
-      - name: Upload Report
+      - name: Debug Archivos
+        run: |
+          echo "=== TODOS los reportes ==="
+          ls -la *.html *.json || echo "Ningún reporte"
+          find . -name "*report*" -o -name "*zap*" -o -name "*.html"
+
+      - name: Upload TODOS
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: zap-juice-shop-report
+          name: zap-juice-shop-complete
           path: |
-            zap_report.html
             zap-baseline.html
+            zap_report.html
             report*.html
-            ./*
+            *.json
