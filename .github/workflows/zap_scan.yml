@@ -18,15 +18,18 @@ jobs:
           docker run -d --name juice-shop -p 3000:3000 bkimminich/juice-shop
           timeout 120 bash -c 'while ! curl -f http://localhost:3000; do sleep 5; done'
 
-      - name: ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.7.0
+      - name: ZAP Scan Manual (Docker Hub OK)
+        uses: docker://owasp/zap2docker-stable:prerelease  # Tag que SÍ existe
+        env:
+          TARGET: 'http://localhost:3000'
         with:
-          target: 'http://localhost:3000'
-          docker_name: 'owasp/zap2docker-stable'
-          failure_threshold: none
+          entrypoint: /zap/zap-baseline.py
+          args: '-t ${{ env.TARGET }} -r zap-baseline.html --format json'
 
-      - name: Upload Report
+      - name: Upload Reports
         uses: actions/upload-artifact@v4
         with:
-          name: zap-juice-shop-report
-          path: zap-baseline.html
+          name: zap-juice-shop-reports
+          path: |
+            zap-baseline.*
+            zap_report.*
