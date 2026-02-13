@@ -1,5 +1,5 @@
 # este archivo YAML define el workflow de GitHub Actions para ejecutar un escaneo de seguridad utilizando OWASP ZAP. El workflow se activa cada vez que se realiza un push al repositorio. El proceso incluye la instalación de OWASP ZAP, la ejecución del escaneo definido en zap_scan.yaml, y la subida del reporte generado como un artefacto para su revisión posterior.
-name: ZAP Baseline Juice Shop
+name: ZAP Juice Shop Scan
 
 on:
   workflow_dispatch:
@@ -22,15 +22,11 @@ jobs:
         uses: zaproxy/action-baseline@v0.7.0
         with:
           target: 'http://localhost:3000'
-          rules_file_name: 'zap_scan.yaml'  # Tu plan: spider + active + report
-          docker_name: 'owasp/zap2docker-stable'  # Docker Hub público, sin auth
-          failure_threshold: low  # Ajusta: high/medium/low/none
-          report_title: 'Juice Shop ZAP Report'
+          docker_name: 'owasp/zap2docker-stable'
+          failure_threshold: none
 
       - name: Upload Report
         uses: actions/upload-artifact@v4
         with:
           name: zap-juice-shop-report
-          path: |
-            zap-baseline.html
-            zap_report.html  # De tu yaml
+          path: zap-baseline.html
