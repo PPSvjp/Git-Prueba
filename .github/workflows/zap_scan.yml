@@ -1,37 +1,40 @@
 # este archivo YAML define el workflow de GitHub Actions para ejecutar un escaneo de seguridad utilizando OWASP ZAP. El workflow se activa cada vez que se realiza un push al repositorio. El proceso incluye la instalación de OWASP ZAP, la ejecución del escaneo definido en zap_scan.yaml, y la subida del reporte generado como un artefacto para su revisión posterior.
-name: ZAP Scan
+name: ZAP Scan Juice Shop
 
 on:
+  workflow_dispatch:  # Manual trigger
   push:
     branches: [ main ]
-  pull_request:
 
 jobs:
-  zap_scan:
+  scan:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Instalar OWASP ZAP
-        run: sudo apt-get update && sudo apt-get install -y zaproxy
-
-      - name: Comprobamos estoado de máquina y por si acaso paramos Juice-Shop para que no de error
-        run: docker stop pps-juice-shop
-
-      - name: Levantar contenedor de  Juice-Shop
-        run: docker start pps-juice-shop
-
-      - name: Ejecutar escaneo
+      - name: Start Juice Shop
         run: |
-          zaproxy -cmd -autorun zap_scan.yaml
+          docker run -d --name juice-shop -p 3000:3000 bkimminich/juice-shop
+          # Espera a que inicie (Juice Shop tarda ~30s)
+          timeout=120s bash -c 'until curl -f http://localhost:3000; do sleep 5; done' || true
 
-      - name: Subir reporte
+      - name: ZAP Scan
+        uses: zaproxy/action-full-scan@v0.4.0  # Full scan incluye spider + active
+        id: zap-scan
+        with:
+          target: 'http://localhost:3000'
+          rules_file_name: 'zap_scan.yaml'  # Tu config personalizada
+          docker_name: 'ghcr.io/zaproxy/zap-stable'
+          cmd_options: '-J zap_report.json'  # JSON para artifacts
+
+      - name: Show ZAP results
+        run: cat zap_report.json
+
+      - name: Upload ZAP Report
         uses: actions/upload-artifact@v4
         with:
-          name: ZAP-Report
-          path: zap_report.html
-
-      - name: Parar contenedor
-        run: docker stop pps-juice-shop
+          name: zap-juice-shop-report
+          path: |
+            zap_report.json
+            zap_report.html  # Si generas HTML también
