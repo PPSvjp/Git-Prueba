@@ -16,7 +16,7 @@ jobs:
 
       - name: Start target app
         run: |
-          docker run -d --name mi-juice-shop --rm -p 3000:3000 bkimminich/juice-shop
+          docker start pps-juice-shop
           sleep 5
 
       - name: Run ZAP Automation Plan
