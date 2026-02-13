@@ -1,20 +1,33 @@
 //este archivo YAML define el workflow de GitHub Actions para ejecutar un escaneo de seguridad utilizando OWASP ZAP. El workflow se activa cada vez que se realiza un push al repositorio. El proceso incluye la instalación de OWASP ZAP, la ejecución del escaneo definido en zap_scan.yaml, y la subida del reporte generado como un artefacto para su revisión posterior.
+name: ZAP Scan
 
-name: DAST Scan
-on: push
+on:
+  push:
+    branches: [ main ]
+  pull_request:
 
 jobs:
   zap_scan:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Instalar OWASP ZAP
-        run: sudo apt-get install zaproxy -y
+      - name: Checkout
+        uses: actions/checkout@v3
 
-      - name: Ejecutar escaneo
-        run: zaproxy -cmd -autorun zap_scan.yaml
+      - name: Start target app
+        run: |
+          docker compose up -d
+          sleep 5
 
-      - name: Guardar reporte
+      - name: Run ZAP Automation Plan
+        run: |
+          PWD=$(pwd) docker run --network="host" \
+            -v $(pwd):/zap/wrk \
+            owasp/zap2docker-stable \
+            zap.sh -cmd -autorun /zap/wrk/zap-plan.yaml
+
+      - name: Upload ZAP Report
         uses: actions/upload-artifact@v3
         with:
-          name: ZAP-Report
+          name: zap-report
           path: zap_report.html
