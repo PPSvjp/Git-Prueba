@@ -16,7 +16,7 @@ jobs:
 
       - name: Start target app
         run: |
-          docker compose up -d
+          docker run -d --name juidce-shop --rm -p 3000:3000 bkimminich/juice-shopd
           sleep 5
 
       - name: Run ZAP Automation Plan
